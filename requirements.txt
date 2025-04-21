@@ -2,3 +2,8 @@ python-dotenv==1.0.1
 dearpygui==2.0.0
 av==12.1.0
 numpy==1.26.4
+PyAudio==0.2.14
+faster_whisper==1.1.1
+webrtcvad==2.0.10
+python-dotenv==1.0.1
+typing_extensions==4.12.2
