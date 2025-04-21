@@ -1,6 +1,7 @@
 import dearpygui.dearpygui as dpg
-import os
 
+from ..message_event import MessageListener, MessageBroker, MessageType
+from ..async_event import AsyncListener, AsyncBroker, AsyncMessageType
 
 class ChatWindow:
     _window: any
@@ -8,7 +9,9 @@ class ChatWindow:
     _height: int
 
     def __init__(self):
-        pass
+        self._msg_broker = MessageBroker()
+        self._async_broker = AsyncBroker()
+
     def setup(self, width: int, height: int, title_bar: bool) -> "ChatWindow":
         # Setup the window
         with dpg.window(label="", width=width, height=height, no_title_bar=title_bar) as w:
@@ -32,6 +35,14 @@ class ChatWindow:
             dpg.add_button(label="Stop conversation", callback=self._on_stop)
             self._el_recording_label = dpg.add_text("Recording...", show=False)
             self._el_recording_indicator = dpg.add_loading_indicator(show=False)
+
+            # Subscribe event
+            AsyncBroker().subscribe("chat_response", self._on_chat_response)
+            AsyncBroker().subscribe("chat_listening_start", self._on_chat_listening_start)
+            AsyncBroker().subscribe("chat_user_input", self._on_chat_user_input)
+            AsyncBroker().subscribe("chat_done", self._on_chat_done)
+            AsyncBroker().subscribe("chat_done_listening", self._on_chat_done_listening)
+            
         return self
 
     #
@@ -44,6 +55,7 @@ class ChatWindow:
         dpg.set_y_scroll(self._chat_area, 999999)
 
     def _add_user_msg(self, msg: str):
+        print("user msg:", msg)
         dpg.add_text(f"user: {msg}", bullet=True, before=self._el_loading, parent=self._chat_area,
                      wrap=self._width - 50)
         # 채팅 영역의 스크롤을 최하단으로 설정
@@ -57,19 +69,45 @@ class ChatWindow:
         user_input = dpg.get_value("user_input")
         if user_input == "":
             user_input = "안녕하세요."
-        else:
-            print("입력값:", user_input)
         dpg.set_value("user_input", "")
-        ChatWindow._on_chat_user_input(self, ("chat_user_input", user_input))
+        AsyncBroker().emit(("chat_user_input", user_input))
 
     def _on_wakeup_btn(self):
         dpg.configure_item(self._el_loading, show=False)
+        AsyncBroker().emit(("wake_up", None))
 
     def _on_stop(self):
-        dpg.configure_item(self._el_loading, show=True)        
+        dpg.configure_item(self._el_loading, show=True)
+        AsyncBroker().emit(("chat_done", None))
+        
+    # External Callbacks
+    def _on_chat_response(self, msg: tuple[str, str]):
+        e, response = msg
+        # print("graphics: catch event:", e, response)
+        dpg.configure_item(self._el_loading, show=False)
 
-    def _on_chat_user_input(self, msg: tuple[str, str]):
-        _, user_input = msg
+        if response.get('type') in [None, "text", "meta"]:
+            self._add_bot_msg(response['msg'])
+        elif response.get('type') == "music-card":
+            self._add_bot_msg(f"Playing {response['msg']['src']} ...")
+        else:
+            print(f"Unknown response type {response['type']}")
+
+    def _on_chat_user_input(self, user_input: str):
         self._add_user_msg(user_input)
         dpg.configure_item(self._el_recording_label, show=False)
         dpg.configure_item(self._el_recording_indicator, show=False)
+
+    def _on_chat_listening_start(self, msg: MessageType):
+        dpg.configure_item(self._el_recording_label, show=True)
+        dpg.configure_item(self._el_recording_indicator, show=True)
+    
+    def _on_chat_done(self, msg: MessageType):
+        dpg.configure_item(self._el_recording_label, show=False)
+        dpg.configure_item(self._el_recording_indicator, show=False)
+        dpg.configure_item(self._el_loading, show=False)
+        # self._add_bot_msg("(대화 마침.)")
+        AsyncBroker().emit(("chat_done_listening", None))
+
+    def _on_chat_done_listening(self, msg: MessageType):
+        self._add_bot_msg("(대화 마침_'친구님 대화하자'인식 시작)")
