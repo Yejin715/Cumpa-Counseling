@@ -1,15 +1,20 @@
 import os
 import sys
+from typing import List
 from dotenv import load_dotenv
-
 import dearpygui.dearpygui as dpg
+
+
+from ..lib.singleton import Singleton
 from .chat_window import ChatWindow
+from .log_window import LogWindow
 from .visual_cue_texture import VisualCueTexture
 
 load_dotenv()
-class Graphics():
+class Graphics(Singleton):
     ASSETS_PATH = "src/graphics/assets/"
     _visual_cue_texture: VisualCueTexture
+    _log_tags: List[str]
 
     def __init__(self):
         self.RUN_DEVICE = os.getenv("TARGET_DEVICE", "PC") # RPi or PC
@@ -25,7 +30,7 @@ class Graphics():
                 dpg.add_font_range_hint(dpg.mvFontRangeHint_Korean)
                 dpg.bind_font(font)
         
-    def run(self):
+    def run(self, log_tags: List[str] = []):
         # 초기화 및 기본 컨텍스트 생성
         dpg.create_context()
         
@@ -42,6 +47,11 @@ class Graphics():
             with dpg.child_window(width=480, height=270, parent=chat_window._window) as w:
                 self._visual_cue_texture = VisualCueTexture().setup(480, 270, texture_tag="visual_cue_texture")
                 dpg.add_image("visual_cue_texture")
+                
+            for (i, tag) in enumerate(log_tags):
+                height = self.HEIGHT // len(log_tags)
+                LogWindow().setup(tag, log_width, height, x=self.WIDTH - log_width, y=height * i)
+        
         else:
             # Visual Cue 전용 모드: "Ways of talking" 창 생성
             with dpg.window(label="Ways of talking", tag="Ways of talking", width=self.WIDTH, height=self.HEIGHT) as w:
