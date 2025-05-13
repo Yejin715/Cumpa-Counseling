@@ -13,6 +13,7 @@ from ..lib.loggable import Loggable
 from ..message_event import MessageListener, MessageBroker, MessageType
 from ..async_event import AsyncListener, AsyncBroker, AsyncMessageType
 from ..events import ChatSpeechRecognitionDetail
+from ..graphics.chat_window import ChatWindow
 
 
 class FasterWhisperRecognizer(Loggable):
@@ -32,6 +33,7 @@ class FasterWhisperRecognizer(Loggable):
 
         self._mic_end = Event()
         self._recognize_thread = None
+        self.use_whisper = True  # 기본은 Whisper 사용
 
         # 메시지 구독
         AsyncBroker().subscribe("chat_listening_start", self._on_chat_listening_start)
@@ -161,7 +163,11 @@ class FasterWhisperRecognizer(Loggable):
     def _on_chat_listening_start(self, _: MessageType[None]):
         """
         Start the speech recognition routine when listening starts.
-        """
+        """        
+        if not ChatWindow.use_whisper:
+            self.log("Whisper disabled (keyboard mode)")
+            return
+        
         self._mic_end.clear()
         self._recognize_thread = Thread(target=self._recognize_routine)
         self._recognize_thread.start()
