@@ -5,5 +5,14 @@ numpy==1.26.4
 PyAudio==0.2.14
 faster_whisper==1.1.1
 webrtcvad==2.0.10
-python-dotenv==1.0.1
 typing_extensions==4.12.2
+langchain==0.3.14
+langchain-core==0.3.34
+langchain-openai==0.3.0
+langchain-google-genai==2.0.9
+langchain-anthropic==0.3.7
+fastapi==0.115.6
+uvicorn==0.34.0
+pandas==2.2.3
+openpyxl==3.1.5
+pydantic==2.10.6
