@@ -34,6 +34,6 @@ class LogWindow:
     # 
     # External Callbacks
     #
-    def _on_log(self, msg: MessageType):
+    def _on_log(self, msg: AsyncMessageType):
         e, log = msg
         self._add_log(log)
