@@ -9,6 +9,7 @@ from .lib.loggable import Loggable
 from .graphics.graphics import Graphics
 from .message_event import MessageListener
 from .async_event import AsyncListener
+from .dialog_manager.llm_chatgpt import LLMChatManager
 from .dialog_manager.faster_whisper_recognizer import FasterWhisperRecognizer
 
   
@@ -22,8 +23,10 @@ class Core(threading.Thread, Loggable):
         self.set_tag("core")
 
         self.TARGET_DEVICE = os.getenv("TARGET_DEVICE", "PC") # RPi or PC
+        self.llm_chat = LLMChatManager()
         self.speech_recognizer = FasterWhisperRecognizer(model_size="base")  # Faster-Whisper로 변경
-        self.threads = self.speech_recognizer
+        # self.threads = (self.llm_chat, self.speech_recognizer)
+        self.threads = (self.llm_chat,)
 
     def get_log_tags(self):
         return [self.get_tag()]
@@ -37,7 +40,7 @@ class Core(threading.Thread, Loggable):
         for thread in self.threads:
             thread.start()
         try:
-            MessageListener().run(self)
+            AsyncListener().run()
         except KeyboardInterrupt:
             self.cleanup()
         except:
