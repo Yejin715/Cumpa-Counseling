@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 
+from ..lib.time_stamp import get_current_timestamp
 from ..lib.loggable import Loggable
 from ..lib.phasemanager import PhaseManager
 from ..lib.phase import Phase
@@ -106,7 +107,9 @@ def saveTestSetting(data: chatbotSettingData) -> PhaseManager:
     # print(f"current phase: {data.start_phase}")
     # reset DB for new chatbot
     reset()
-    addMessage("PHASE", data.start_phase)
+    PHASE_end_time = get_current_timestamp()
+    addMessage("PHASE", data.start_phase, PHASE_end_time, PHASE_end_time)
+
 
     action_dict = {}
     for action in data.actions:
@@ -236,8 +239,9 @@ class LLMChatManager(threading.Thread, Loggable):
 
         AsyncBroker().subscribe("chat_user_input", self._on_user_input)
     
-    def _on_user_input(self, msg: str):
+    def _on_user_input(self, msg: dict):
         self.submit_input(msg)
+        
 
     def run(self):
         self._loop = asyncio.new_event_loop()
@@ -265,24 +269,34 @@ class LLMChatManager(threading.Thread, Loggable):
                 continue
 
     async def _handle_first_input(self):
+        response_start_time = get_current_timestamp()
         response, changed = await executeChatbot(self.phase_manager, getHistory())
-        addMessage("AI", response)
+        response_end_time = get_current_timestamp()
+        addMessage("AI", response, response_start_time, response_end_time)
         if changed:
-            addMessage("PHASE", self.phase_manager.getCurrPhase().getName())
+            PHASE_end_time = get_current_timestamp()
+            addMessage("PHASE", self.phase_manager.getCurrPhase().getName(), PHASE_end_time, PHASE_end_time)
 
         print(f"[LLMChat] AI: {response}")
         AsyncBroker().emit(("chat_response", ("chat_response", {"msg": response, "type": "text"})))
 
-    async def _handle_user_input(self, user_input):
-        addMessage("USER", user_input)
+    async def _handle_user_input(self, msg: dict):
+        user_input, start_time, end_time = msg
+        user_input = msg["content"]
+        user_start_time = msg["start_time"]
+        user_end_time = msg["end_time"]
+        addMessage("USER", user_input, user_start_time, user_end_time)
+        response_start_time = get_current_timestamp()
         response, changed = await executeChatbot(self.phase_manager, getHistory())
-        addMessage("AI", response)
+        response_end_time = get_current_timestamp()
+        addMessage("AI", response, response_start_time, response_end_time)
         if changed:
-            addMessage("PHASE", self.phase_manager.getCurrPhase().getName())
+            PHASE_end_time = get_current_timestamp()
+            addMessage("PHASE", self.phase_manager.getCurrPhase().getName(), PHASE_end_time, PHASE_end_time)
 
         print(f"[LLMChat] AI: {response}")
         AsyncBroker().emit(("chat_response", ("chat_response", {"msg": response, "type": "text"})))
 
-    def submit_input(self, text):
+    def submit_input(self, msg: dict):
         if self._loop and not self._loop.is_closed():
-            asyncio.run_coroutine_threadsafe(self._input_queue.put(text), self._loop)
+            asyncio.run_coroutine_threadsafe(self._input_queue.put(msg), self._loop)

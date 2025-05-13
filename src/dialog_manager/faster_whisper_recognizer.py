@@ -8,11 +8,11 @@ import webrtcvad
 import wave
 from io import BytesIO
 
+from ..lib.time_stamp import get_current_timestamp
 from ..lib.microphone import Microphone
 from ..lib.loggable import Loggable
 from ..message_event import MessageListener, MessageBroker, MessageType
 from ..async_event import AsyncListener, AsyncBroker, AsyncMessageType
-from ..events import ChatSpeechRecognitionDetail
 from ..graphics.chat_window import ChatWindow
 
 
@@ -108,6 +108,9 @@ class FasterWhisperRecognizer(Loggable):
 
                     if is_speech:
                         # 데이터를 정규화하고 필터링
+                        if self.speech_detected_frames == 0:
+                            user_input_start_time = get_current_timestamp()
+
                         audio_data = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32767.0
 
                         self.audio_buffer.append((audio_data * 32767).astype(np.int16).tobytes())
@@ -145,9 +148,8 @@ class FasterWhisperRecognizer(Loggable):
                                                 self.log("일어났어요.")
                                                 AsyncBroker().emit(("wake_up", None))
                                         else :
-                                            AsyncBroker().emit(("chat_speech_recognition", ChatSpeechRecognitionDetail(
-                                                transcript=transcript
-                                            )))
+                                            user_input_end_time = get_current_timestamp()
+                                            AsyncBroker().emit(("chat_user_input", {"content": transcript, "start_time": user_input_start_time, "end_time": user_input_end_time}))
                             except Exception as e:
                                 print(f"Whisper processing error: {e}")
 
@@ -160,7 +162,7 @@ class FasterWhisperRecognizer(Loggable):
                     break
 
 
-    def _on_chat_listening_start(self, _: MessageType[None]):
+    def _on_chat_listening_start(self, _: AsyncMessageType[None]):
         """
         Start the speech recognition routine when listening starts.
         """        
@@ -172,13 +174,13 @@ class FasterWhisperRecognizer(Loggable):
         self._recognize_thread = Thread(target=self._recognize_routine)
         self._recognize_thread.start()
 
-    def _on_chat_user_input(self, _: MessageType[None]):
+    def _on_chat_user_input(self, _: AsyncMessageType[None]):
         """
         Stop recognition when user input is detected.
         """
         self._stop_recognition()
 
-    def _on_chat_done(self, _: MessageType[None]):
+    def _on_chat_done(self, _: AsyncMessageType[None]):
         """
         Stop recognition when chat is done.
         """
@@ -196,7 +198,7 @@ class FasterWhisperRecognizer(Loggable):
             self._recognize_thread = None
         self.log("Stopped recognition.")
     
-    def _on_chat_done_listening(self, msg: MessageType):
+    def _on_chat_done_listening(self, msg: AsyncMessageType):
         self.log("Whisper_친구님 인식 시작")
         self.chat_done_flag = True
         AsyncBroker().emit(("chat_listening_start", None))
