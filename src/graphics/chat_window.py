@@ -1,13 +1,15 @@
 import dearpygui.dearpygui as dpg
 
+from ..lib.time_stamp import get_current_timestamp
 from ..message_event import MessageBroker, MessageType
 from ..async_event import AsyncBroker, AsyncMessageType
+
 
 class ChatWindow:
     _window: any
     _width: int 
     _height: int
-    use_whisper =  False  # 기본은 Whisper 사용 (현재는 꺼놓은 상황)
+    use_whisper =  True  # 기본은 Whisper 사용 (현재는 꺼놓은 상황)
 
     def __init__(self):
         pass
@@ -28,7 +30,7 @@ class ChatWindow:
                 self._el_recording_label = dpg.add_text("Recording...", show=False)
                 self._el_recording_indicator = dpg.add_loading_indicator(show=False)
                 # 내용이 길어지면 기본적으로 스크롤바가 생깁니다.
-            dpg.add_checkbox(label="음성인식사용여부 (미사용시 키보드 입력)", default_value=False, callback=self._on_toggle_whisper)
+            dpg.add_checkbox(label="음성인식사용여부 (미사용시 키보드 입력)", default_value=ChatWindow.use_whisper, callback=self._on_toggle_whisper)
 
             # 입력 영역 (라벨과 입력창)
             with dpg.group(horizontal=True):
@@ -72,7 +74,8 @@ class ChatWindow:
         if user_input == "":
             user_input = "안녕하세요."
         dpg.set_value("user_input", "")
-        AsyncBroker().emit(("chat_user_input", user_input))
+        end_time = get_current_timestamp()
+        AsyncBroker().emit(("chat_user_input", {"content": user_input, "start_time": end_time, "end_time": end_time}))
 
     def _on_wakeup_btn(self):
         dpg.configure_item(self._el_loading, show=False)
@@ -100,20 +103,21 @@ class ChatWindow:
         else:
             print(f"Unknown response type {response['type']}")
 
-    def _on_chat_user_input(self, user_input: str):
+    def _on_chat_user_input(self, msg: dict):
+        user_input = msg['content']
         self._add_user_msg(user_input)
         dpg.configure_item(self._el_recording_label, show=False)
         dpg.configure_item(self._el_recording_indicator, show=False)
 
-    def _on_chat_listening_start(self, msg: MessageType):
+    def _on_chat_listening_start(self, msg: AsyncMessageType):
         dpg.configure_item(self._el_recording_label, show=True)
         dpg.configure_item(self._el_recording_indicator, show=True)
     
-    def _on_chat_done(self, msg: MessageType):
+    def _on_chat_done(self, msg: AsyncMessageType):
         dpg.configure_item(self._el_recording_label, show=False)
         dpg.configure_item(self._el_recording_indicator, show=False)
         dpg.configure_item(self._el_loading, show=False)
         AsyncBroker().emit(("chat_done_listening", None))
 
-    def _on_chat_done_listening(self, msg: MessageType):
+    def _on_chat_done_listening(self, msg: AsyncMessageType):
         self._add_bot_msg("(대화 마침_'친구님 대화하자'인식 시작)")
