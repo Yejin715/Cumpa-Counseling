@@ -10,6 +10,7 @@ from ..lib.loggable import Loggable
 from ..lib.phasemanager import PhaseManager
 from ..lib.phase import Phase
 from ..lib.DB import initialize, addMessage, getHistory, reset, saveConversation
+from ..graphics.chat_window import ChatWindow
 from langchain_core.prompts import PromptTemplate
 from langchain_openai import ChatOpenAI
 from typing import Any
@@ -198,7 +199,7 @@ async def generateResponse(
             "phase_goal": phase_info["goal"],
             "action": action,
             "action_reason": action_reason,
-            "conversation_history": conversation_history + "\nAI: ",
+            "conversation_history": conversation_history + "\nCUMPAR: ",
         }
     )
 
@@ -235,10 +236,16 @@ class LLMChatManager(threading.Thread, Loggable):
         self.phase_manager = None
         self._loop = None
         self._input_queue = asyncio.Queue()
+        self._cycle_time_queue = asyncio.Queue()
         self._stop_event = threading.Event()
 
+        AsyncBroker().subscribe("chat_cycle_time", self._on_cycle_time)
         AsyncBroker().subscribe("chat_user_input", self._on_user_input)
     
+    def _on_cycle_time(self, msg: dict):
+        if self._loop and not self._loop.is_closed():
+            asyncio.run_coroutine_threadsafe(self._cycle_time_queue.put(msg), self._loop)
+
     def _on_user_input(self, msg: dict):
         self.submit_input(msg)
         
@@ -263,21 +270,31 @@ class LLMChatManager(threading.Thread, Loggable):
         print("[LLMChat] Started. Waiting for user input...")
         while not self._stop_event.is_set():
             try:
+                cycle_time = await asyncio.wait_for(self._cycle_time_queue.get(), timeout=0.1)
                 user_input = await asyncio.wait_for(self._input_queue.get(), timeout=0.1)
+                await self._handle_cycle_time(cycle_time)
                 await self._handle_user_input(user_input)
             except asyncio.TimeoutError:
                 continue
+
+    async def _handle_cycle_time(self, msg: dict):
+        cycle_time_text, start_time, end_time = msg
+        cycle_time_text = msg["content"]
+        cycle_start_time = msg["start_time"]
+        cycle_end_time = msg["end_time"]
+        addMessage("MODE_TURN", cycle_time_text, cycle_start_time, cycle_end_time)
+
 
     async def _handle_first_input(self):
         response_start_time = get_current_timestamp()
         response, changed = await executeChatbot(self.phase_manager, getHistory())
         response_end_time = get_current_timestamp()
-        addMessage("AI", response, response_start_time, response_end_time)
+        addMessage("CUMPAR", response, response_start_time, response_end_time)
         if changed:
             PHASE_end_time = get_current_timestamp()
             addMessage("PHASE", self.phase_manager.getCurrPhase().getName(), PHASE_end_time, PHASE_end_time)
 
-        print(f"[LLMChat] AI: {response}")
+        print(f"[LLMChat] CUMPAR: {response}")
         AsyncBroker().emit(("chat_response", ("chat_response", {"msg": response, "type": "text"})))
 
     async def _handle_user_input(self, msg: dict):
@@ -285,16 +302,20 @@ class LLMChatManager(threading.Thread, Loggable):
         user_input = msg["content"]
         user_start_time = msg["start_time"]
         user_end_time = msg["end_time"]
-        addMessage("USER", user_input, user_start_time, user_end_time)
+        
+        if ChatWindow.use_whisper:
+            addMessage("USER_WHISPER", user_input, user_start_time, user_end_time)
+        else:
+            addMessage("USER_KEYBOARD", user_input, user_start_time, user_end_time)
         response_start_time = get_current_timestamp()
         response, changed = await executeChatbot(self.phase_manager, getHistory())
         response_end_time = get_current_timestamp()
-        addMessage("AI", response, response_start_time, response_end_time)
+        addMessage("CUMPAR", response, response_start_time, response_end_time)
         if changed:
             PHASE_end_time = get_current_timestamp()
             addMessage("PHASE", self.phase_manager.getCurrPhase().getName(), PHASE_end_time, PHASE_end_time)
 
-        print(f"[LLMChat] AI: {response}")
+        print(f"[LLMChat] CUMPAR: {response}")
         AsyncBroker().emit(("chat_response", ("chat_response", {"msg": response, "type": "text"})))
 
     def submit_input(self, msg: dict):

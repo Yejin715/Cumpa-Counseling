@@ -12,7 +12,7 @@ class ChatWindow:
     use_whisper =  True  # 기본은 Whisper 사용 (현재는 꺼놓은 상황)
 
     def __init__(self):
-        pass
+        self.keyboard_start_time = 0
 
     def setup(self, width: int, height: int, title_bar: bool) -> "ChatWindow":
         # Setup the window
@@ -75,6 +75,8 @@ class ChatWindow:
             user_input = "안녕하세요."
         dpg.set_value("user_input", "")
         end_time = get_current_timestamp()
+
+        AsyncBroker().emit(("chat_cycle_time", {"content": "KEYBOARD MODE", "start_time": self.keyboard_start_time, "end_time": end_time}))
         AsyncBroker().emit(("chat_user_input", {"content": user_input, "start_time": end_time, "end_time": end_time}))
 
     def _on_wakeup_btn(self):
@@ -112,6 +114,7 @@ class ChatWindow:
     def _on_chat_listening_start(self, msg: AsyncMessageType):
         dpg.configure_item(self._el_recording_label, show=True)
         dpg.configure_item(self._el_recording_indicator, show=True)
+        self.keyboard_start_time = get_current_timestamp()
     
     def _on_chat_done(self, msg: AsyncMessageType):
         dpg.configure_item(self._el_recording_label, show=False)

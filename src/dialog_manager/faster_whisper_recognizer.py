@@ -33,7 +33,8 @@ class FasterWhisperRecognizer(Loggable):
 
         self._mic_end = Event()
         self._recognize_thread = None
-        self.use_whisper = True  # 기본은 Whisper 사용
+        self.use_whisper = False  # 기본은 Whisper 사용
+        self.whisper_start_time = 0
 
         # 메시지 구독
         AsyncBroker().subscribe("chat_listening_start", self._on_chat_listening_start)
@@ -149,6 +150,8 @@ class FasterWhisperRecognizer(Loggable):
                                                 AsyncBroker().emit(("wake_up", None))
                                         else :
                                             user_input_end_time = get_current_timestamp()
+                                            
+                                            AsyncBroker().emit(("chat_cycle_time", {"content": "WHISPER MODE", "start_time": self.whisper_start_time, "end_time": user_input_end_time}))
                                             AsyncBroker().emit(("chat_user_input", {"content": transcript, "start_time": user_input_start_time, "end_time": user_input_end_time}))
                             except Exception as e:
                                 print(f"Whisper processing error: {e}")
@@ -173,6 +176,7 @@ class FasterWhisperRecognizer(Loggable):
         self._mic_end.clear()
         self._recognize_thread = Thread(target=self._recognize_routine)
         self._recognize_thread.start()
+        self.whisper_start_time = get_current_timestamp()
 
     def _on_chat_user_input(self, _: AsyncMessageType[None]):
         """

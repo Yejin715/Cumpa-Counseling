@@ -9,27 +9,26 @@ def initialize():
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            speaker TEXT NOT NULL,
-            content TEXT NOT NULL,
-            start_time INTEGER NOT NULL,  -- 시작 시간 (타임스탬프)
-            end_time INTEGER NOT NULL     -- 끝 시간 (타임스탬프)
+            ID INTEGER PRIMARY KEY AUTOINCREMENT,
+            SPEAKER TEXT NOT NULL,
+            CONTENT TEXT NOT NULL,
+            START_TIME INTEGER NOT NULL,  -- 시작 시간 (타임스탬프)
+            END_TIME INTEGER NOT NULL     -- 끝 시간 (타임스탬프)
         )
     """
     )
     conn.commit()
     conn.close()
 
-
-def addMessage(speaker: str, content: str, start_time: int, end_time: int):
-    if speaker not in ["USER", "AI", "PHASE"]:
-        raise ValueError("speaker should be one of 'USER', 'AI', 'PHASE'.")
+def addMessage(SPEAKER: str, CONTENT: str, START_TIME: int, END_TIME: int):        
+    if SPEAKER not in ["USER_KEYBOARD", "USER_WHISPER", "CUMPAR", "MODE_TURN", "PHASE"]:
+        raise ValueError("speaker should be one of 'USER_KEYBOARD', 'USER_WHISPER', 'CUMPAR', 'MODE_TURN', 'PHASE'.")
     
     conn = sqlite3.connect("./src/lib/conversation_history.db")
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT INTO history (speaker, content, start_time, end_time) VALUES (?, ?, ?, ?)",
-        (speaker, content, start_time, end_time)
+        "INSERT INTO history (SPEAKER, CONTENT, START_TIME, END_TIME) VALUES (?, ?, ?, ?)",
+        (SPEAKER, CONTENT, START_TIME, END_TIME)
     )
     conn.commit()
     conn.close()
@@ -38,16 +37,16 @@ def addMessage(speaker: str, content: str, start_time: int, end_time: int):
 def getHistory() -> str:
     conn = sqlite3.connect("./src/lib/conversation_history.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT speaker, content, start_time, end_time FROM history")
+    cursor.execute("SELECT SPEAKER, CONTENT, START_TIME, END_TIME FROM history")
     rows = cursor.fetchall()
     conn.close()
 
     temp = []
-    for speaker, content, start_time, end_time  in rows:
-        if speaker == "PHASE":
-            temp.append(f"\n[{content}]")
+    for SPEAKER, CONTENT, START_TIME, END_TIME  in rows:
+        if SPEAKER == "PHASE":
+            temp.append(f"\n[{CONTENT}]")
         else:
-            temp.append(f"{speaker}: {content}: {start_time}: {end_time}")  # 시간 정보 추가
+            temp.append(f"{SPEAKER}: {CONTENT}: {START_TIME}: {END_TIME}")  # 시간 정보 추가
 
     return "\n".join(temp)
 
@@ -64,7 +63,7 @@ def reset():
 def saveConversation(index: int, filepath: str):
     conn = sqlite3.connect("./src/lib/conversation_history.db")
     cursor = conn.cursor()
-    cursor.execute("SELECT speaker, content, start_time, end_time FROM history")
+    cursor.execute("SELECT SPEAKER, CONTENT, START_TIME, END_TIME FROM history")
     rows = cursor.fetchall()
     conn.close()
     
@@ -74,9 +73,9 @@ def saveConversation(index: int, filepath: str):
         writer = csv.writer(csv_file)
 
         if not file_exists:
-            writer.writerow(["index", "role", "message", "start_time", "end_time"])  # 시간 추가
+            writer.writerow(["INDEX", "ROLE", "MESSAGE", "START_TIME", "END_TIME"])  # 시간 추가
 
         for row in rows:
-            role, message, start_time, end_time = row
-            if role != "PHASE":
-                writer.writerow([index, role, message, start_time, end_time])  # 시간 정보 함께 저장
+            ROLE, MESSAGE, START_TIME, END_TIME = row
+            if ROLE != "PHASE":
+                writer.writerow([index, ROLE, MESSAGE, START_TIME, END_TIME])  # 시간 정보 함께 저장
