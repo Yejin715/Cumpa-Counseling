@@ -9,7 +9,7 @@ class ChatWindow:
     _window: any
     _width: int 
     _height: int
-    use_whisper =  True  # 기본은 Whisper 사용 (현재는 꺼놓은 상황)
+    use_whisper =  False  # 기본은 Whisper 사용 (현재는 꺼놓은 상황)
 
     def __init__(self):
         self.keyboard_start_time = 0
@@ -59,7 +59,7 @@ class ChatWindow:
         dpg.set_y_scroll(self._chat_area, 999999)
 
     def _add_user_msg(self, msg: str):
-        print("user msg:", msg)
+        # print("user msg:", msg)
         dpg.add_text(f"user: {msg}", bullet=True, before=self._el_loading, parent=self._chat_area,
                      wrap=self._width - 50)
         # 채팅 영역의 스크롤을 최하단으로 설정
@@ -88,20 +88,17 @@ class ChatWindow:
 
     def _on_toggle_whisper(self, sender, app_data, user_data=None):
         ChatWindow.use_whisper = app_data  # True면 Whisper 사용, False면 키보드 입력
-        print("Whisper mode:", ChatWindow.use_whisper)
         
     # External Callbacks
-    def _on_chat_response(self, msg: tuple[str, str]):
-        e, response = msg
-        # print("graphics: catch event:", e, response)
+    def _on_chat_response(self, response: dict):
         dpg.configure_item(self._el_loading, show=False)
 
-        if response.get('type') in [None, "text", "meta"]:
+        if response['type'] =="text" or response['type'] == "meta":
             self._add_bot_msg(response['msg'])
-            AsyncBroker().emit(("chat_listening_start", None))
-        elif response.get('type') == "music-card":
+            # AsyncBroker().emit(("chat_listening_start", None))
+        elif response['type'] == "music-card":
             self._add_bot_msg(f"Playing {response['msg']['src']} ...")
-            AsyncBroker().emit(("chat_listening_start", None))
+            # AsyncBroker().emit(("chat_listening_start", None))
         else:
             print(f"Unknown response type {response['type']}")
 

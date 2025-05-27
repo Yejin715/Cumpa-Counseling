@@ -17,6 +17,7 @@ from typing import Any
 
 import threading
 from ..async_event import AsyncBroker, AsyncMessageType
+from .hugging_face_transformers_emotion import EmotionAnalyzer
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -232,6 +233,7 @@ class LLMChatManager(threading.Thread, Loggable):
         threading.Thread.__init__(self)
         Loggable.__init__(self)
         self.set_tag("llm_chat")
+        self.emotion_analyzer = EmotionAnalyzer()
 
         self.phase_manager = None
         self._loop = None
@@ -295,10 +297,9 @@ class LLMChatManager(threading.Thread, Loggable):
             addMessage("PHASE", self.phase_manager.getCurrPhase().getName(), PHASE_end_time, PHASE_end_time)
 
         print(f"[LLMChat] CUMPAR: {response}")
-        AsyncBroker().emit(("chat_response", ("chat_response", {"msg": response, "type": "text"})))
+        AsyncBroker().emit(("chat_response", {"msg": response, "type": "text", "emotion": "중립"}))
 
     async def _handle_user_input(self, msg: dict):
-        user_input, start_time, end_time = msg
         user_input = msg["content"]
         user_start_time = msg["start_time"]
         user_end_time = msg["end_time"]
@@ -307,6 +308,12 @@ class LLMChatManager(threading.Thread, Loggable):
             addMessage("USER_WHISPER", user_input, user_start_time, user_end_time)
         else:
             addMessage("USER_KEYBOARD", user_input, user_start_time, user_end_time)
+        
+        if user_input and self.emotion_analyzer:
+            emotion_result = self.emotion_analyzer.analyze_emotion(user_input)
+            self.log(f"Emotion analysis user_input: {user_input}")
+            self.log(f"Emotion analysis result: {emotion_result}")
+
         response_start_time = get_current_timestamp()
         response, changed = await executeChatbot(self.phase_manager, getHistory())
         response_end_time = get_current_timestamp()
@@ -316,7 +323,7 @@ class LLMChatManager(threading.Thread, Loggable):
             addMessage("PHASE", self.phase_manager.getCurrPhase().getName(), PHASE_end_time, PHASE_end_time)
 
         print(f"[LLMChat] CUMPAR: {response}")
-        AsyncBroker().emit(("chat_response", ("chat_response", {"msg": response, "type": "text"})))
+        AsyncBroker().emit(("chat_response", {"msg": response, "type": "text", "emotion": emotion_result}))
 
     def submit_input(self, msg: dict):
         if self._loop and not self._loop.is_closed():
