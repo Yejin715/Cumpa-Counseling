@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from .lib.microphone import pa as mic_pa
 
 from .lib.loggable import Loggable
+from .audio.player import ResponsePlayer
 from .graphics.graphics import Graphics
 from .message_event import MessageListener
 from .async_event import AsyncListener
@@ -23,6 +24,7 @@ class Core(threading.Thread, Loggable):
         self.set_tag("core")
 
         self.TARGET_DEVICE = os.getenv("TARGET_DEVICE", "PC") # RPi or PC
+        self.response_player = ResponsePlayer()
         self.llm_chat = LLMChatManager()
         self.speech_recognizer = FasterWhisperRecognizer(model_size="base")  # Faster-Whisper로 변경
         # self.threads = (self.llm_chat, self.speech_recognizer)
