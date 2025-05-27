@@ -3,6 +3,8 @@ import sys
 import time
 
 from .visual_texture import VideoTexture
+from ..message_event import MessageBroker, MessageType
+from ..async_event import AsyncBroker, AsyncMessageType
 
 class VisualCueTexture:
     """
@@ -41,19 +43,27 @@ class VisualCueTexture:
     def update(self) -> bool:
         return self._video_player.update()
 
-    def setup(self, width: int, height: int, texture_tag: str) -> "VisualCueWindow":
+    def setup(self, width: int, height: int, texture_tag: str) -> "VisualCueTexture":
         # Setup the texture
         self._width = width
         self._height = height
         
         self._video_player.setup(width=width, height=height, texture_tag=texture_tag)
         self._video_player.open_video(self._current_video())
-        self._video_player.play()        
+        self._video_player.play()
 
+        # Subscribe event
+        AsyncBroker().subscribe("chat_start_new", lambda _: self._on_turn_take("ATTEMPT_SUPPRESSING"))
+        AsyncBroker().subscribe("chat_listening_start", lambda _: self._on_turn_take("LISTENER_RESPONSE"))
+        AsyncBroker().subscribe("chat_user_input", lambda _: self._on_turn_take("THINKING"))
+        AsyncBroker().subscribe("chat_done", lambda _: self._on_turn_take("NOT_TALKING"))
+        AsyncBroker().subscribe("chat_response", lambda _: self._on_turn_take("ATTEMPT_SUPPRESSING"))
+        
         return self
     
     # External Callbacks
     def _on_turn_take(self, state: str):
         self._cumpa_video_state = state
+        print(f"VisualCueTexture: {state}")
         self._video_player.open_video(self._current_video())
         self._video_player.play()
