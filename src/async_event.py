@@ -1,6 +1,7 @@
 # async_event.py
-
+import os
 import asyncio
+from dotenv import load_dotenv
 from collections import OrderedDict
 from threading import Thread
 from typing import Dict, Set, TypeVar, Callable, Tuple, Any, Awaitable
@@ -9,7 +10,7 @@ import inspect
 T = TypeVar("T")
 AsyncMessageType = Tuple[str, T]     # (event_name, payload)
 
-
+load_dotenv()
 class AsyncListener:
     """
     ■ 논블로킹 메시지 처리 리스너 ■
@@ -82,7 +83,7 @@ class AsyncBroker:
             inst = super().__new__(cls)
             inst._events: Dict[str, Set[AsyncListener]] = OrderedDict()
             inst._lock = asyncio.Lock()
-            inst.VERBOSE = True
+            inst.VERBOSE =  os.getenv("Debugging_Mode", "False")  # 디버깅용
 
             # 1) 전용 이벤트 루프 생성
             inst._loop = asyncio.new_event_loop()

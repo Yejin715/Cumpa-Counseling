@@ -4,11 +4,14 @@ from collections import OrderedDict
 from typing import Dict, Set, TypeVar, Callable, Tuple, Any, List
 from .lib.singleton import Singleton
 import time
+import os
+from dotenv import load_dotenv
 
 T = TypeVar("T")
 MessageType = Tuple[str, T]               # (event_name, payload)
 ListenerThread = TypeVar("ListenerThread", bound="MessageListener")
 
+load_dotenv()
 class MessageListener(Thread):
     """
     ■ 메시지 처리 전용 스레드 ■
@@ -113,7 +116,8 @@ class MessageBroker(Singleton):
         # 동시성 문제 방지를 위한 락
         self._lock = Lock()
         # 디버깅 시 구독자 현황 출력 여부
-        self.VERBOSE_CURRENT_SUBSCRIBERS = True
+        self.VERBOSE_CURRENT_SUBSCRIBERS = os.getenv("Debugging_Mode", "False")  # 디버깅용
+
 
     def subscribe(self, event: str, listener: ListenerThread):
         """
