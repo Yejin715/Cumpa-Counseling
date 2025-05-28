@@ -319,6 +319,8 @@ phases:
     router_list:
       - criteria: Always select this.
         next_phase: FINISH
+      - criteria: If user is not satisfied or wants to talk more.
+        next_phase: Greeting
   
 
 actions:
