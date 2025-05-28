@@ -243,14 +243,17 @@ class LLMChatManager(threading.Thread, Loggable):
 
         AsyncBroker().subscribe("chat_cycle_time", self._on_cycle_time)
         AsyncBroker().subscribe("chat_user_input", self._on_user_input)
+        AsyncBroker().subscribe("wake_up", self._on_wake_up)
     
+    async def _on_wake_up(self, _: tuple[str, None]):
+        await self._handle_first_input()
+
     def _on_cycle_time(self, msg: dict):
         if self._loop and not self._loop.is_closed():
             asyncio.run_coroutine_threadsafe(self._cycle_time_queue.put(msg), self._loop)
 
     def _on_user_input(self, msg: dict):
-        self.submit_input(msg)
-        
+        self.submit_input(msg)        
 
     def run(self):
         self._loop = asyncio.new_event_loop()
