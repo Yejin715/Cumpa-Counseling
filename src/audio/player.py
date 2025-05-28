@@ -42,6 +42,8 @@ class ResponsePlayer(Loggable):
         Loggable.__init__(self)
         self.set_tag("response_player")
 
+        self.chat_done_flag = False
+
         # Load the environment variables
         self._clova_client_id = os.getenv("CLOVA_TTS_CLIENT_ID")
         self._clova_client_secret = os.getenv("CLOVA_TTS_CLIENT_SECRET")
@@ -67,9 +69,14 @@ class ResponsePlayer(Loggable):
         self._stream = None
 
         # Register event handlers
+        AsyncBroker().subscribe("wait_chat_finish", self._on_wait_chat_finish)
         AsyncBroker().subscribe("chat_response", self._on_chat_response)
         AsyncBroker().subscribe("wake_up", self._on_wake_up)
     
+    def _on_wait_chat_finish(self, msg: AsyncMessageType):
+        print("Chat finished, closing the stream.")
+        self.chat_done_flag = True
+
     def _check_stream_end(self):
         if self._stream is not None and not self._stream.is_active():
             self._stream.close()
@@ -129,7 +136,11 @@ class ResponsePlayer(Loggable):
                 if len(data) == 0 or wf.tell() == wf.getnframes():
                     wf.close()
                     # 스트림이 끝나면 이벤트 발행
-                    AsyncBroker().emit(("chat_listening_start", None))
+                    print("self.chat_done_flag", self.chat_done_flag)
+                    if self.chat_done_flag:
+                        AsyncBroker().emit(("chat_done", None))
+                    else:
+                        AsyncBroker().emit(("chat_listening_start", None))
                     return (data, pyaudio.paComplete)
                 return (data, pyaudio.paContinue)
 
@@ -202,10 +213,12 @@ class ResponsePlayer(Loggable):
             # TODO: write empty audio to text.wav
             return
         
-    def _on_wake_up(self, _: tuple[str, None]):
+    async def _on_wake_up(self, _: tuple[str, None]):
         self.log("Wake Up")
+        self.chat_done_flag = False
+
         sound_path = f"src/audio/assets/music/ding.wav" 
-        self._play_audio(sound_path)
+        await self._play_audio(sound_path)
 
     def stop(self):
         self.pa.terminate()
