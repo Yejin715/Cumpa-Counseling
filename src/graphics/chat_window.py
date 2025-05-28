@@ -36,7 +36,7 @@ class ChatWindow:
             with dpg.group(horizontal=True):
                 dpg.add_text("입력 : ")
                 dpg.add_input_text(tag="user_input", hint="전달하고 싶은 내용을 작성하세요.", )
-            dpg.add_button(label="Send", callback=self._on_send)
+                dpg.add_button(label="Send", callback=self._on_send)
             dpg.add_button(label="Wake up", callback=self._on_wakeup_btn)
             dpg.add_button(label="Stop conversation", callback=self._on_stop)
 
@@ -80,7 +80,6 @@ class ChatWindow:
         AsyncBroker().emit(("chat_user_input", {"content": user_input, "start_time": end_time, "end_time": end_time}))
 
     def _on_wakeup_btn(self):
-        dpg.configure_item(self._el_loading, show=False)
         AsyncBroker().emit(("wake_up", None))
 
     def _on_stop(self):
@@ -88,6 +87,8 @@ class ChatWindow:
 
     def _on_toggle_whisper(self, sender, app_data, user_data=None):
         ChatWindow.use_whisper = app_data  # True면 Whisper 사용, False면 키보드 입력
+        if ChatWindow.use_whisper:
+            AsyncBroker().emit(("cumpa_listening_start", None))
         
     # External Callbacks
     def _on_chat_response(self, response: dict):
