@@ -1,4 +1,6 @@
 from .phase import Phase
+from ..message_event import MessageBroker, MessageType
+from ..async_event import AsyncBroker, AsyncMessageType
 
 
 class PhaseManager:
@@ -47,6 +49,12 @@ class PhaseManager:
         else:
             if next_phase in self.phase_dict:
                 self.current_phase = self.phase_dict[next_phase]
+                
+                if next_phase == "FINISH":
+                    print("Starting a new conversation. Initializing Greeting phase.")
+                    self.setStartPhase("Greeting")  # 'Greeting'으로 돌아가서 대화 초기화
+                    self.setCurrPhase("Greeting")  # 새로운 대화 흐름 시작
+                    AsyncBroker().emit(("wait_chat_finish", None))
                 return True
             else:
                 print(f"There is no such phase named '{next_phase}'")
